@@ -25,7 +25,7 @@ def main():
     args = parser.parse_args()
 
     try:
-        calc = LumiCalculator(args.csv, args.search_path)
+        calc = LumiCalculator(args.csv, args.search_path, verbose=args.verbose)
     except FileNotFoundError as e:
         print('Error: {}'.format(e), file=sys.stderr)
         sys.exit(1)
@@ -63,7 +63,10 @@ def main():
 
         print('-' * 62)
 
-    total = calc.total_luminosity()
+    total = sum(
+        r['computed_luminosity'] for r in results.values()
+        if r['computed_luminosity'] is not None
+    )
     print('Total luminosity: {:.6f}'.format(total))
     print('Runs found: {}'.format(len(results)))
 

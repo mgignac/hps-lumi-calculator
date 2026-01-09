@@ -6,21 +6,25 @@ from typing import Dict, Optional
 
 
 class LumiCalculator:
-    def __init__(self, csv_path: str, search_path: str):
+    def __init__(self, csv_path: str, search_path: str, verbose: bool = False):
         """
         Initialize the luminosity calculator.
 
         Args:
             csv_path: Path to the CSV file containing run data.
             search_path: Path to search for hps_XXXXX folders.
+            verbose: Print progress information.
         """
         self.csv_path = Path(csv_path)
         self.search_path = Path(search_path)
+        self.verbose = verbose
         self.run_data = {}
         self._load_csv()
 
     def _load_csv(self):
         """Load run data from CSV file."""
+        if self.verbose:
+            print('Loading CSV from {}'.format(self.csv_path))
         with open(self.csv_path, 'r') as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -31,6 +35,8 @@ class LumiCalculator:
                     'evio_files_count': int(row['evio_files_count']),
                     'luminosity': float(row['luminosity']),
                 }
+        if self.verbose:
+            print('Loaded {} runs from CSV'.format(len(self.run_data)))
 
     def find_run_folders(self) -> Dict[int, Path]:
         """
@@ -92,7 +98,13 @@ class LumiCalculator:
         results = {}
         folders = self.find_run_folders()
 
-        for run_number, folder in folders.items():
+        if self.verbose:
+            print('Found {} run folders'.format(len(folders)))
+            print('Processing runs...')
+
+        for i, (run_number, folder) in enumerate(sorted(folders.items())):
+            if self.verbose:
+                print('  [{}/{}] Run {}'.format(i + 1, len(folders), run_number))
             found_files = self.count_files(folder)
             luminosity = self.calculate_luminosity(run_number, found_files)
 
