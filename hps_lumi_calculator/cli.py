@@ -21,11 +21,27 @@ def main():
         action='store_true',
         help='Show detailed output for each run'
     )
+    parser.add_argument(
+        '--run', '-r',
+        type=int,
+        default=None,
+        help='Only process this specific run number'
+    )
+    parser.add_argument(
+        '--pattern', '-p',
+        default=None,
+        help='Only count files containing this string'
+    )
 
     args = parser.parse_args()
 
     try:
-        calc = LumiCalculator(args.csv, args.search_path, verbose=args.verbose)
+        calc = LumiCalculator(
+            args.csv, args.search_path,
+            verbose=args.verbose,
+            run_filter=args.run,
+            file_pattern=args.pattern
+        )
     except FileNotFoundError as e:
         print('Error: {}'.format(e), file=sys.stderr)
         sys.exit(1)
