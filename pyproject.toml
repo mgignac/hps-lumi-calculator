@@ -6,7 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "hps-lumi-calculator"
 version = "0.1.0"
 description = "Calculate luminosity for HPS runs based on available files"
-requires-python = ">=3.9"
+requires-python = ">=3.6"
+
+[project.scripts]
+hps-lumi = "hps_lumi_calculator.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest"]
