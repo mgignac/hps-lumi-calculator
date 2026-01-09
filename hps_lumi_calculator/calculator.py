@@ -1,0 +1,128 @@
+import csv
+import os
+import re
+from pathlib import Path
+from typing import Dict, Optional
+
+
+class LumiCalculator:
+    def __init__(self, csv_path: str, search_path: str):
+        """
+        Initialize the luminosity calculator.
+
+        Args:
+            csv_path: Path to the CSV file containing run data.
+            search_path: Path to search for hps_XXXXX folders.
+        """
+        self.csv_path = Path(csv_path)
+        self.search_path = Path(search_path)
+        self.run_data = {}
+        self._load_csv()
+
+    def _load_csv(self):
+        """Load run data from CSV file."""
+        with open(self.csv_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if not row['x']:
+                    continue
+                run_number = int(row['x'])
+                self.run_data[run_number] = {
+                    'evio_files_count': int(row['evio_files_count']),
+                    'luminosity': float(row['luminosity']),
+                }
+
+    def find_run_folders(self) -> Dict[int, Path]:
+        """
+        Find all hps_XXXXX folders in the search path.
+
+        Returns:
+            Dictionary mapping run numbers to folder paths.
+        """
+        pattern = re.compile(r'^hps_(\d{5,6})$')
+        folders = {}
+
+        if not self.search_path.exists():
+            return folders
+
+        for item in self.search_path.iterdir():
+            if item.is_dir():
+                match = pattern.match(item.name)
+                if match:
+                    run_number = int(match.group(1))
+                    folders[run_number] = item
+
+        return folders
+
+    def count_files(self, folder: Path) -> int:
+        """Count the number of files in a folder."""
+        return sum(1 for item in folder.iterdir() if item.is_file())
+
+    def calculate_luminosity(self, run_number: int, found_files: int) -> Optional[float]:
+        """
+        Calculate the luminosity for a run based on found files.
+
+        Args:
+            run_number: The run number.
+            found_files: Number of files found in the folder.
+
+        Returns:
+            Calculated luminosity or None if run not in data.
+        """
+        if run_number not in self.run_data:
+            return None
+
+        data = self.run_data[run_number]
+        evio_count = data['evio_files_count']
+        full_luminosity = data['luminosity']
+
+        if evio_count == 0:
+            return 0.0
+
+        fraction = found_files / evio_count
+        return fraction * full_luminosity
+
+    def compute_all(self) -> Dict:
+        """
+        Compute luminosity for all found run folders.
+
+        Returns:
+            Dictionary with run numbers as keys and result dicts as values.
+        """
+        results = {}
+        folders = self.find_run_folders()
+
+        for run_number, folder in folders.items():
+            found_files = self.count_files(folder)
+            luminosity = self.calculate_luminosity(run_number, found_files)
+
+            if run_number in self.run_data:
+                data = self.run_data[run_number]
+                results[run_number] = {
+                    'folder': str(folder),
+                    'found_files': found_files,
+                    'expected_files': data['evio_files_count'],
+                    'full_luminosity': data['luminosity'],
+                    'computed_luminosity': luminosity,
+                    'fraction': found_files / data['evio_files_count'] if data['evio_files_count'] > 0 else 0,
+                }
+            else:
+                results[run_number] = {
+                    'folder': str(folder),
+                    'found_files': found_files,
+                    'expected_files': None,
+                    'full_luminosity': None,
+                    'computed_luminosity': None,
+                    'fraction': None,
+                }
+
+        return results
+
+    def total_luminosity(self) -> float:
+        """Calculate the total luminosity across all found runs."""
+        results = self.compute_all()
+        total = 0.0
+        for run_data in results.values():
+            if run_data['computed_luminosity'] is not None:
+                total += run_data['computed_luminosity']
+        return total
