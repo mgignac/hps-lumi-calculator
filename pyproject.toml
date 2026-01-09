@@ -13,3 +13,6 @@ hps-lumi = "hps_lumi_calculator.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["hps_lumi_calculator*"]
