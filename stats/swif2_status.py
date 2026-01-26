@@ -185,9 +185,12 @@ def main():
     total_problems = totals['problems']
 
     if total_jobs > 0:
+        total_completed = total_succeeded + total_problems
+        overall_completion_rate = (total_completed / total_jobs) * 100
         overall_success_rate = (total_succeeded / total_jobs) * 100
         overall_failure_rate = (total_problems / total_jobs) * 100
         print(f"\nOverall ({total_jobs:,} jobs):")
+        print(f"  Completion:   {overall_completion_rate:.2f}% ({total_completed:,}/{total_jobs:,})")
         print(f"  Success rate: {overall_success_rate:.2f}% ({total_succeeded:,}/{total_jobs:,})")
         print(f"  Failure rate: {overall_failure_rate:.2f}% ({total_problems:,}/{total_jobs:,})")
     else:
@@ -195,17 +198,19 @@ def main():
 
     # Per-workflow rates
     print(f"\nPer-workflow rates:")
-    print(f"{'Workflow':<30} {'Jobs':>10} {'Success%':>10} {'Failure%':>10}")
-    print('-' * 62)
+    print(f"{'Workflow':<30} {'Jobs':>10} {'Complete%':>11} {'Success%':>10} {'Failure%':>10}")
+    print('-' * 73)
 
     for wf in workflow_stats:
         jobs = wf['jobs']
         if jobs > 0:
+            completed = wf['succeeded'] + wf['problems']
+            completion_rate = (completed / jobs) * 100
             success_rate = (wf['succeeded'] / jobs) * 100
             failure_rate = (wf['problems'] / jobs) * 100
-            print(f"{wf['name']:<30} {jobs:>10,} {success_rate:>9.2f}% {failure_rate:>9.2f}%")
+            print(f"{wf['name']:<30} {jobs:>10,} {completion_rate:>10.2f}% {success_rate:>9.2f}% {failure_rate:>9.2f}%")
         else:
-            print(f"{wf['name']:<30} {jobs:>10,} {'N/A':>10} {'N/A':>10}")
+            print(f"{wf['name']:<30} {jobs:>10,} {'N/A':>11} {'N/A':>10} {'N/A':>10}")
 
 
 if __name__ == '__main__':
