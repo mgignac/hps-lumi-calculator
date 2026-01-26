@@ -5,6 +5,7 @@ Parse and summarize swif2 status output for multiple workflows.
 
 import argparse
 import subprocess
+from collections import defaultdict
 
 # Fields that are workflow-specific and should not be summed
 EXCLUDED_FIELDS = {
@@ -93,7 +94,7 @@ def main():
     )
     parser.add_argument(
         'basename',
-        help='Workflow basename (workflows will be basename_0, basename_1, ...)'
+        help='Workflow basename (workflows will be basename_1, basename_2, ...)'
     )
     parser.add_argument(
         'max_workflows',
@@ -109,10 +110,13 @@ def main():
 
     # Aggregated totals
     totals = {field: 0 for field in NUMERIC_FIELDS}
-    all_problem_types = set()
+    problem_type_counts = defaultdict(int)
     workflows_queried = 0
 
-    for i in range(args.max_workflows):
+    # Per-workflow stats for rate calculations
+    workflow_stats = []
+
+    for i in range(1, args.max_workflows + 1):
         workflow_name = f"{args.basename}_{i}"
 
         output = get_workflow_status(workflow_name)
@@ -127,17 +131,31 @@ def main():
         data = parse_status_output(output)
         workflows_queried += 1
 
+        # Track per-workflow stats
+        wf_stats = {
+            'name': workflow_name,
+            'jobs': 0,
+            'succeeded': 0,
+            'problems': 0,
+        }
+
         # Sum numeric fields
         for field in NUMERIC_FIELDS:
             if field in data:
                 value = parse_numeric_value(data[field])
                 if value is not None:
                     totals[field] += value
+                    if field in wf_stats:
+                        wf_stats[field] = value
 
-        # Collect problem types
+        workflow_stats.append(wf_stats)
+
+        # Collect and count problem types
         if 'problem_types' in data and data['problem_types']:
             for ptype in data['problem_types'].split(','):
-                all_problem_types.add(ptype.strip())
+                ptype = ptype.strip()
+                if ptype:
+                    problem_type_counts[ptype] += 1
 
     # Print summary
     print(f"\n{'='*50}")
@@ -149,8 +167,45 @@ def main():
         # Format large numbers with commas
         print(f"{field:25} = {value:,}")
 
-    if all_problem_types:
-        print(f"{'problem_types':25} = {','.join(sorted(all_problem_types))}")
+    if problem_type_counts:
+        print(f"\n{'='*50}")
+        print("PROBLEM TYPES (count of workflows with each type)")
+        print('='*50)
+        for ptype in sorted(problem_type_counts.keys()):
+            print(f"{ptype:25} = {problem_type_counts[ptype]:,}")
+
+    # Print success/failure rates
+    print(f"\n{'='*50}")
+    print("SUCCESS/FAILURE RATES")
+    print('='*50)
+
+    # Overall rates
+    total_jobs = totals['jobs']
+    total_succeeded = totals['succeeded']
+    total_problems = totals['problems']
+
+    if total_jobs > 0:
+        overall_success_rate = (total_succeeded / total_jobs) * 100
+        overall_failure_rate = (total_problems / total_jobs) * 100
+        print(f"\nOverall ({total_jobs:,} jobs):")
+        print(f"  Success rate: {overall_success_rate:.2f}% ({total_succeeded:,}/{total_jobs:,})")
+        print(f"  Failure rate: {overall_failure_rate:.2f}% ({total_problems:,}/{total_jobs:,})")
+    else:
+        print("\nOverall: No jobs found")
+
+    # Per-workflow rates
+    print(f"\nPer-workflow rates:")
+    print(f"{'Workflow':<30} {'Jobs':>10} {'Success%':>10} {'Failure%':>10}")
+    print('-' * 62)
+
+    for wf in workflow_stats:
+        jobs = wf['jobs']
+        if jobs > 0:
+            success_rate = (wf['succeeded'] / jobs) * 100
+            failure_rate = (wf['problems'] / jobs) * 100
+            print(f"{wf['name']:<30} {jobs:>10,} {success_rate:>9.2f}% {failure_rate:>9.2f}%")
+        else:
+            print(f"{wf['name']:<30} {jobs:>10,} {'N/A':>10} {'N/A':>10}")
 
 
 if __name__ == '__main__':
